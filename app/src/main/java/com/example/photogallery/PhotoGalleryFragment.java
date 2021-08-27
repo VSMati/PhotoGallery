@@ -139,7 +139,6 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
-    @SuppressLint("StaticFieldLeak")
     private class FetchItemTasks extends AsyncTask<Void,Void,List<GalleryItem>>{
 
         @Override

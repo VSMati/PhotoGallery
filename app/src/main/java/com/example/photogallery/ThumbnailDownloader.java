@@ -1,9 +1,11 @@
 package com.example.photogallery;
 
 import android.annotation.SuppressLint;
+import android.app.ActivityManager;
 import android.content.AsyncQueryHandler;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -12,6 +14,10 @@ import android.util.Log;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import static android.content.Context.ACTIVITY_SERVICE;
+import static androidx.core.content.ContextCompat.createDeviceProtectedStorageContext;
+import static androidx.core.content.ContextCompat.getSystemService;
 
 public class ThumbnailDownloader<T> extends HandlerThread {
     private static final String TAG = "ThumbnailDownloader";
@@ -74,28 +80,31 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private void handleRequest(final T target){
         try {
             final String url = mRequestMap.get(target);
+            final Bitmap bitmap;
+            PhotoCache photoCache = new PhotoCache(getCacheSize());
 
-            if (url == null){
-                return ;
-            }
-
-            byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
-            final Bitmap bitmap = BitmapFactory
-                    .decodeByteArray(bitmapBytes,0, bitmapBytes.length);
-            Log.i(TAG, "handleRequest: bitmap created");
-
-            mResponseHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (mRequestMap.get(target) != url || mHasQuit){
-                        return;
-                    }
-
-                    mRequestMap.remove(target);
-                    mThumbnailDownloadListener.onThumbnailDownloaded(target,bitmap);
+            if (url != null){
+                if (photoCache.getBitmapFromMemory(url) == null){
+                    byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
+                    bitmap = BitmapFactory
+                            .decodeByteArray(bitmapBytes,0, bitmapBytes.length);
+                    photoCache.setBitmapToMemory(url,bitmap);
+                    Log.i(TAG, "handleRequest: bitmap created");
+                }else{
+                    bitmap = photoCache.getBitmapFromMemory(url);
+                    Log.i(TAG, "handleRequest: GOT bitmap from memory");
                 }
-            });
-
+                mResponseHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mRequestMap.get(target) != url || mHasQuit){
+                            return;
+                        }
+                        mRequestMap.remove(target);
+                        mThumbnailDownloadListener.onThumbnailDownloaded(target,bitmap);
+                    }
+                });
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -104,5 +113,9 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     public void clearQueue(){
         mRequestHandler.removeMessages(MESSAGE_DOWNLOAD);
         mRequestMap.clear();
+    }
+
+    private int getCacheSize(){
+        return (int) (Runtime.getRuntime().maxMemory() / 1024)/4;
     }
 }
