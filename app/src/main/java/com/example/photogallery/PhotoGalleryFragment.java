@@ -1,6 +1,8 @@
 package com.example.photogallery;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -9,15 +11,20 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -56,7 +63,7 @@ public class PhotoGalleryFragment extends Fragment {
                     if ((visibleItemCount+pastVisiblesItems)>=totalItemCount){
                         pageNum++;
                         Log.i(TAG, "onScrolled: changing page");
-                        new FetchItemTasks().execute();
+                        updateItems();
                         setupAdapter();
                         }
                     }
@@ -71,6 +78,8 @@ public class PhotoGalleryFragment extends Fragment {
                 // https://stackoverflow.com/questions/13132832/how-does-grid-view-change-column-number-runtime
             }
         });
+
+        setHasOptionsMenu(true);
         return v;
     }
 
@@ -78,7 +87,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemTasks().execute();
+        updateItems();
 
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -92,6 +101,57 @@ public class PhotoGalleryFragment extends Fragment {
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
         Log.i(TAG, "onCreate: background thread started");
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull @NotNull Menu menu, @NonNull @NotNull MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery,menu);
+
+        MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                QueryPreferences.setStoredQuery(getActivity(),query);
+                hideKeyboard(getContext(),getView());
+                updateItems();
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String query = QueryPreferences.getStoredQuery(getActivity());
+                searchView.setQuery(query,false);
+            }
+        });
+    }
+
+
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull @NotNull MenuItem item) {
+        final int id = item.getItemId();
+        if (id == R.id.menu_item_clear){
+            QueryPreferences.setStoredQuery(getActivity(),null);
+            updateItems();
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemTasks(query).execute();
     }
 
     @SuppressWarnings("rawtypes")
@@ -139,11 +199,20 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
-    private class FetchItemTasks extends AsyncTask<Void,Void,List<GalleryItem>>{
+    private class FetchItemTasks extends AsyncTask<String,Void,List<GalleryItem>>{
+        private String mQuery;
+
+        public FetchItemTasks(String query) {
+            mQuery = query;
+        }
 
         @Override
-        protected List<GalleryItem> doInBackground(Void... voids) {
-            return new FlickrFetchr().fetchItems(pageNum);
+        protected List<GalleryItem> doInBackground(String... strings) {
+            if (mQuery == null){
+                return new FlickrFetchr().fetchRecentPhotos(pageNum);
+            } else{
+                return new FlickrFetchr().searchPhotos(mQuery,pageNum);
+            }
         }
 
         @Override
@@ -171,5 +240,11 @@ public class PhotoGalleryFragment extends Fragment {
         super.onDestroyView();
         mThumbnailDownloader.clearQueue();
         //if view gets destroyed, queue gets cleared up
+    }
+
+    private void hideKeyboard(Context context, View view) {
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(view.getWindowToken(),0);
+        view.clearFocus();
     }
 }
