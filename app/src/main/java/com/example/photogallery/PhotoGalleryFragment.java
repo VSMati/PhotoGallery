@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("deprecation")
-public class PhotoGalleryFragment extends Fragment {
+public class PhotoGalleryFragment extends VisibleFragment {
     private RecyclerView mRecyclerView;
     private GridLayoutManager mLayoutManager;
     private static final String TAG = "PhotoGalleryFragment";

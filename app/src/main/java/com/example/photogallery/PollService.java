@@ -1,8 +1,8 @@
 package com.example.photogallery;
 
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -12,12 +12,10 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.os.SystemClock;
-import android.telephony.AvailableNetworkInfo;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.JobIntentService;
-import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import org.jetbrains.annotations.NotNull;
@@ -29,6 +27,12 @@ public class PollService extends JobIntentService {
     private final static String TAG = "PollService";
 
     private static final long POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(15);
+    public static final String ACTION_SHOW_NOTIFICATION
+            = "com.example.android.photogallery.SHOW_NOTIFICATION";
+    public static final String PERM_PRIVATE = "com.example.photogallery.permission.PRIVATE";
+
+    public static final String REQUEST_CODE = "REQUEST_CODE";
+    public static final String NOTIFICATION = "NOTIFICATION";
 
     public static void setServiceAlarm(Context context, boolean isOn){
         Intent i = PollService.newIntent(context);
@@ -44,6 +48,8 @@ public class PollService extends JobIntentService {
             alarmManager.cancel(pendingI);
             pendingI.cancel();
         }
+
+        QueryPreferences.setAlarmOn(context,isOn);
     }
 
     public static boolean isServiceAlarmOn(Context context){
@@ -73,17 +79,9 @@ public class PollService extends JobIntentService {
             return ;
         }
 
-        String resultId = items.get(0).getId();
-        if (resultId.equals(lastResultId)){
-            Log.i(TAG, "onHandleWork: got an old result "+resultId);
-        } else {
-            Log.i(TAG, "onHandleWork: got a new result "+resultId);
-        }
-
         Resources res = getResources();
         Intent i = PhotoGalleryActivity.newIntent(this);
         PendingIntent pi = PendingIntent.getService(this,0,i,0);
-
         Notification notification = new Notification.Builder(this)
                 .setTicker(res.getText(R.string.new_pictures_title))
                 .setSmallIcon(android.R.drawable.ic_menu_report_image)
@@ -93,13 +91,26 @@ public class PollService extends JobIntentService {
                 .setAutoCancel(true)
                 .build();
 
-        NotificationManagerCompat nm = NotificationManagerCompat.from(this);
-        nm.notify(0,notification);
+        String resultId = items.get(0).getId();
+        if (resultId.equals(lastResultId)){
+            Log.i(TAG, "onHandleWork: got an old result "+resultId);
+        } else {
+            showBackgroundNotification(0,notification);
+        }
+
         QueryPreferences.setLastResultId(this,resultId);
     }
 
     public static Intent newIntent(Context context){
         return new Intent(context, PollService.class);
+    }
+
+    private void showBackgroundNotification(int requestCode, Notification notification){
+        Intent i = new Intent(ACTION_SHOW_NOTIFICATION);
+        i.putExtra(REQUEST_CODE,requestCode);
+        i.putExtra(NOTIFICATION,notification);
+        sendOrderedBroadcast(i,PERM_PRIVATE, null, null,
+                Activity.RESULT_OK, null, null);
     }
 
     private boolean isNetworkAvailableAndConnected(){

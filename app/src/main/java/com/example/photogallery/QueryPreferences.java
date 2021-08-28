@@ -6,6 +6,7 @@ import androidx.preference.*;
 public class QueryPreferences {
     private static final String PREF_SEARCH_QUERY = "search_query";
     private static final String PREF_LAST_RESULT_ID = "last_result_id";
+    private static final String PREF_IS_ALARM_ON = "is_alarm_on";
 
     public static String getStoredQuery(Context context){
         return PreferenceManager.getDefaultSharedPreferences(context)
@@ -28,6 +29,18 @@ public class QueryPreferences {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putString(PREF_LAST_RESULT_ID,id)
+                .apply();
+    }
+
+    public static boolean isAlarmOn(Context context){
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(PREF_IS_ALARM_ON,false);
+    }
+
+    public static void setAlarmOn(Context context, boolean state){
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(PREF_IS_ALARM_ON,state)
                 .apply();
     }
 }
