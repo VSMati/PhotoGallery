@@ -3,6 +3,7 @@ package com.example.photogallery;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -89,6 +90,9 @@ public class PhotoGalleryFragment extends Fragment {
         setRetainInstance(true);
         updateItems();
 
+        Intent service = PollService.newIntent(getContext());
+        getActivity().startService(service);
+
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
         mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
@@ -133,6 +137,13 @@ public class PhotoGalleryFragment extends Fragment {
                 searchView.setQuery(query,false);
             }
         });
+
+        MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getActivity())){
+            toggleItem.setTitle(R.string.stop_polling);
+        }else{
+            toggleItem.setTitle(R.string.start_polling);
+        }
     }
 
 
@@ -143,6 +154,12 @@ public class PhotoGalleryFragment extends Fragment {
         if (id == R.id.menu_item_clear){
             QueryPreferences.setStoredQuery(getActivity(),null);
             updateItems();
+            return true;
+        }
+        if (id == R.id.menu_item_toggle_polling){
+            boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getContext());
+            PollService.setServiceAlarm(getActivity(),shouldStartAlarm);
+            getActivity().invalidateOptionsMenu();
             return true;
         }
 
@@ -247,4 +264,6 @@ public class PhotoGalleryFragment extends Fragment {
         imm.hideSoftInputFromWindow(view.getWindowToken(),0);
         view.clearFocus();
     }
+
+
 }
