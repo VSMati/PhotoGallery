@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 
 public class StartupReceiver extends BroadcastReceiver {
-    private static final String TAG = "StartupReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {

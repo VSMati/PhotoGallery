@@ -1,23 +1,18 @@
 package com.example.photogallery;
 
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
-import android.content.AsyncQueryHandler;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static android.content.Context.ACTIVITY_SERVICE;
-import static androidx.core.content.ContextCompat.createDeviceProtectedStorageContext;
-import static androidx.core.content.ContextCompat.getSystemService;
 
 public class ThumbnailDownloader<T> extends HandlerThread {
     private static final String TAG = "ThumbnailDownloader";
@@ -25,9 +20,9 @@ public class ThumbnailDownloader<T> extends HandlerThread {
 
     private boolean mHasQuit = false;
     private Handler mRequestHandler; //will post download requests to ThumbnailDownloader's background thread
-    private ConcurrentMap<T,String> mRequestMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<T,String> mRequestMap = new ConcurrentHashMap<>();
     //to store and retrieve the URL associated with the request
-    private Handler mResponseHandler; //will hold handler from the main thread
+    private final Handler mResponseHandler; //will hold handler from the main thread
     private ThumbnailDownloadListener<T> mThumbnailDownloadListener;
     //listener will be used when the image is downloaded
 
@@ -44,6 +39,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
         mResponseHandler = responseHandler;
     }
 
+    @SuppressWarnings("deprecation")
     @SuppressLint("HandlerLeak")
     @Override
     protected void onLooperPrepared() {
@@ -94,15 +90,12 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                     bitmap = photoCache.getBitmapFromMemory(url);
                     Log.i(TAG, "handleRequest: GOT bitmap from memory");
                 }
-                mResponseHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (mRequestMap.get(target) != url || mHasQuit){
-                            return;
-                        }
-                        mRequestMap.remove(target);
-                        mThumbnailDownloadListener.onThumbnailDownloaded(target,bitmap);
+                mResponseHandler.post(() -> {
+                    if (!Objects.equals(mRequestMap.get(target), url) || mHasQuit){
+                        return;
                     }
+                    mRequestMap.remove(target);
+                    mThumbnailDownloadListener.onThumbnailDownloaded(target,bitmap);
                 });
             }
         } catch (IOException e) {

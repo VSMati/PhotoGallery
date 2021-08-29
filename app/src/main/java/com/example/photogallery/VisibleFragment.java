@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
@@ -17,16 +16,16 @@ public abstract class VisibleFragment extends Fragment {
     public void onStart() {
         super.onStart();
         IntentFilter filter = new IntentFilter(PollService.ACTION_SHOW_NOTIFICATION);
-        getActivity().registerReceiver(mOnShowNotification,filter, PollService.PERM_PRIVATE,null);
+        requireActivity().registerReceiver(mOnShowNotification,filter, PollService.PERM_PRIVATE,null);
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        getActivity().unregisterReceiver(mOnShowNotification);
+        requireActivity().unregisterReceiver(mOnShowNotification);
     }
 
-    private BroadcastReceiver mOnShowNotification = new BroadcastReceiver() {
+    private final BroadcastReceiver mOnShowNotification = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.i(TAG, "onReceive: cancelling notification");

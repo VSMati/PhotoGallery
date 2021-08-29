@@ -4,9 +4,9 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,15 +17,13 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.URLUtil;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -71,13 +69,10 @@ public class PhotoGalleryFragment extends VisibleFragment {
             }
         });
 
-        mRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                //todo: later add code here to adjust rows number (need im size)
-                //look here:
-                // https://stackoverflow.com/questions/13132832/how-does-grid-view-change-column-number-runtime
-            }
+        mRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            //todo: later add code here to adjust rows number (need im size)
+            //look here:
+            // https://stackoverflow.com/questions/13132832/how-does-grid-view-change-column-number-runtime
         });
 
         setHasOptionsMenu(true);
@@ -91,16 +86,13 @@ public class PhotoGalleryFragment extends VisibleFragment {
         updateItems();
 
         Intent service = PollService.newIntent(getContext());
-        getActivity().startService(service);
+        requireActivity().startService(service);
 
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
-        mThumbnailDownloader.setThumbnailDownloadListener(new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
-            @Override
-            public void onThumbnailDownloaded(PhotoHolder target, Bitmap thumbnail) {
-                Drawable drawable = new BitmapDrawable(getResources(),thumbnail);
-                target.bindDrawable(drawable);
-            }
+        mThumbnailDownloader.setThumbnailDownloadListener((target, thumbnail) -> {
+            Drawable drawable = new BitmapDrawable(getResources(),thumbnail);
+            target.bindDrawable(drawable);
         });
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
@@ -119,7 +111,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
             @Override
             public boolean onQueryTextSubmit(String query) {
                 QueryPreferences.setStoredQuery(getActivity(),query);
-                hideKeyboard(getContext(),getView());
+                hideKeyboard(requireContext(),requireView());
                 updateItems();
                 return false;
             }
@@ -130,12 +122,9 @@ public class PhotoGalleryFragment extends VisibleFragment {
             }
         });
 
-        searchView.setOnSearchClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String query = QueryPreferences.getStoredQuery(getActivity());
-                searchView.setQuery(query,false);
-            }
+        searchView.setOnSearchClickListener(v -> {
+            String query = QueryPreferences.getStoredQuery(getActivity());
+            searchView.setQuery(query,false);
         });
 
         MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
@@ -158,8 +147,8 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
         if (id == R.id.menu_item_toggle_polling){
             boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getContext());
-            PollService.setServiceAlarm(getActivity(),shouldStartAlarm);
-            getActivity().invalidateOptionsMenu();
+            PollService.setServiceAlarm(requireActivity(),shouldStartAlarm);
+            requireActivity().invalidateOptionsMenu();
             return true;
         }
 
@@ -194,6 +183,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
             @SuppressLint("UseCompatLoadingForDrawables")
             Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
             ((PhotoHolder) holder).bindDrawable(placeholder);
+            ((PhotoHolder) holder).bindGalleryItem(galleryItem);
             mThumbnailDownloader.queueThumbnail(((PhotoHolder) holder), galleryItem.getUrl());
         }
 
@@ -203,21 +193,41 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
     }
 
-    private static class PhotoHolder extends RecyclerView.ViewHolder{
+    private class PhotoHolder extends RecyclerView.ViewHolder
+    implements View.OnClickListener{
         private final ImageView mImage;
+        private GalleryItem mGalleryItem;
 
         public PhotoHolder(@NonNull @NotNull View itemView) {
             super(itemView);
             mImage = itemView.findViewById(R.id.item_image_view);
+            mImage.setOnClickListener(this);
         }
 
         public void bindDrawable(Drawable drawable){
             mImage.setImageDrawable(drawable);
         }
+
+        public void bindGalleryItem(GalleryItem galleryItem){
+            mGalleryItem = galleryItem;
+        }
+
+        @Override
+        public void onClick(View v) {
+            //todo:if isHttpUri false - start intent
+            Uri webPage = mGalleryItem.getPhotoPageUri();
+            Intent i;
+            if (isHttpUri(webPage)){
+                i = PhotoPageActivity.newIntent(getContext(),webPage);
+            }else{
+                i = new Intent(Intent.ACTION_VIEW,mGalleryItem.getPhotoPageUri());
+            }
+            startActivity(i);
+        }
     }
 
     private class FetchItemTasks extends AsyncTask<String,Void,List<GalleryItem>>{
-        private String mQuery;
+        private final String mQuery;
 
         public FetchItemTasks(String query) {
             mQuery = query;
@@ -263,6 +273,11 @@ public class PhotoGalleryFragment extends VisibleFragment {
         InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(view.getWindowToken(),0);
         view.clearFocus();
+    }
+
+    private boolean isHttpUri(Uri uri){
+        String url = uri.toString();
+        return URLUtil.isHttpUrl(url) || URLUtil.isHttpsUrl(url);
     }
 
 

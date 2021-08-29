@@ -16,7 +16,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.JobIntentService;
-import androidx.core.app.NotificationManagerCompat;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -95,7 +94,7 @@ public class PollService extends JobIntentService {
         if (resultId.equals(lastResultId)){
             Log.i(TAG, "onHandleWork: got an old result "+resultId);
         } else {
-            showBackgroundNotification(0,notification);
+            showBackgroundNotification(notification);
         }
 
         QueryPreferences.setLastResultId(this,resultId);
@@ -105,14 +104,15 @@ public class PollService extends JobIntentService {
         return new Intent(context, PollService.class);
     }
 
-    private void showBackgroundNotification(int requestCode, Notification notification){
+    private void showBackgroundNotification(Notification notification){
         Intent i = new Intent(ACTION_SHOW_NOTIFICATION);
-        i.putExtra(REQUEST_CODE,requestCode);
+        i.putExtra(REQUEST_CODE, 0);
         i.putExtra(NOTIFICATION,notification);
         sendOrderedBroadcast(i,PERM_PRIVATE, null, null,
                 Activity.RESULT_OK, null, null);
     }
 
+    @SuppressWarnings("deprecation")
     private boolean isNetworkAvailableAndConnected(){
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {

@@ -9,7 +9,6 @@ import android.content.Intent;
 import androidx.core.app.NotificationManagerCompat;
 
 public class NotificationReceiver extends BroadcastReceiver {
-    private static final String TAG = "BroadcastReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {
